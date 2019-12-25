@@ -12,10 +12,11 @@ import CoreVideo
 
 class MetalView: MTKView {
     
-    @IBOutlet var metalView: MetalView!
-    
     var inputTime: CFTimeInterval?
-     
+    var effect_brighness:Float      = 1.0
+    var effect_strength:Float       = 1.0
+    let videoWidth:CGFloat          = 1280
+    let videoHeight:CGFloat         = 720
     var pixelBuffer: CVPixelBuffer? {
         didSet {
             setNeedsDisplay()
@@ -31,21 +32,16 @@ class MetalView: MTKView {
         // Get the default metal device.
         let metalDevice = MTLCreateSystemDefaultDevice()!
      
-        // Create a command queue.
         self.commandQueue = metalDevice.makeCommandQueue()!
      
-        // Create the metal library containing the shaders
-        let bundle = Bundle.main
-        let url = bundle.url(forResource: "default", withExtension: "metallib")
+        let bundle  = Bundle.main
+        let url     = bundle.url(forResource: "default", withExtension: "metallib")
         let library = try! metalDevice.makeLibrary(filepath: url!.path)
      
-        // Create a function with a specific name.
         let function = library.makeFunction(name: "colorKernel")!
      
-        // Create a compute pipeline with the above function.
         self.computePipelineState = try! metalDevice.makeComputePipelineState(function: function)
      
-        // Initialize the cache to convert the pixel buffer into a Metal texture.
         var textCache: CVMetalTextureCache?
         if CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, metalDevice, nil, &textCache) != kCVReturnSuccess {
             fatalError("Unable to allocate texture cache.")
@@ -56,31 +52,28 @@ class MetalView: MTKView {
      
         // Initialize super.
         super.init(coder: coder)
-     
+
         // Assign the metal device to this view.
-        self.device = metalDevice
-     
-        // Enable the current drawable texture read/write.
-        self.framebufferOnly = false
-     
-        // Disable drawable auto-resize.
-        self.autoResizeDrawable = false
-     
-        // Set the content mode to aspect fit.
-        self.contentMode = .scaleAspectFit
-     
-        // Change drawing mode based on setNeedsDisplay().
-        self.enableSetNeedsDisplay = true
-        self.isPaused = true
-     
-        // Set the content scale factor to the screen scale.
-        self.contentScaleFactor = UIScreen.main.scale
-     
+        self.device                 = metalDevice
+        self.framebufferOnly        = false
+        self.autoResizeDrawable     = false
+        self.contentMode            = .scaleAspectFit //.scaleAspectFit
+        self.enableSetNeedsDisplay  = true
+        self.isPaused               = true
+        self.contentScaleFactor     = UIScreen.main.nativeScale //UIScreen.main.scale
+
         // Set the size of the drawable.
-        self.drawableSize = CGSize(width: 1920, height: 1080)
+        let scale:CGFloat = videoWidth / UIScreen.main.bounds.size.width
+        self.drawableSize = CGSize(width: UIScreen.main.bounds.size.width * scale, height: UIScreen.main.bounds.size.height * scale)
+        
+        print("UIScreen.main.nativeScale: ", UIScreen.main.nativeScale)
+        print("UIScreen.main.scale: ", UIScreen.main.scale)
+        print("screen: ",UIScreen.main.bounds.size.width, ", ",UIScreen.main.bounds.size.height)
+        print("screen native: ",UIScreen.main.nativeBounds.size.width, ", ",UIScreen.main.nativeBounds.size.height)
+        
+        print("drawableSize: ", self.drawableSize)
+        print("done...")
     }
-    
-    
     
     override func draw(_ rect: CGRect) {
         autoreleasepool {
@@ -99,49 +92,37 @@ class MetalView: MTKView {
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
      
+//        print("screenSize: ", UIScreen.main.bounds.size, UIScreen.main.scale)
+//        print("pixelBuffer size: ", width, height)
+//        print("drawableSize: ", self.drawableSize)
+        
+        
         // Converts the pixel buffer in a Metal texture.
         var cvTextureOut: CVMetalTexture?
         CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, self.textureCache!, pixelBuffer, nil, .bgra8Unorm, width, height, 0, &cvTextureOut)
         guard let cvTexture = cvTextureOut, let inputTexture = CVMetalTextureGetTexture(cvTexture) else {
             fatalError("Failed to create metal texture")
-            return
         }
      
-        // Check if Core Animation provided a drawable.
         guard let drawable: CAMetalDrawable = self.currentDrawable else { return }
      
-        // Create a command buffer
         let commandBuffer = commandQueue.makeCommandBuffer()
      
-        // Create a compute command encoder.
         let computeCommandEncoder = commandBuffer!.makeComputeCommandEncoder()
-     
-        // Set the compute pipeline state for the command encoder.
         computeCommandEncoder!.setComputePipelineState(computePipelineState)
-     
-        // Set the input and output textures for the compute shader.
         computeCommandEncoder!.setTexture(inputTexture, index: 0)
         computeCommandEncoder!.setTexture(drawable.texture, index: 1)
      
-        // Convert the time in a metal buffer.
         var time = Float(self.inputTime!)
+        var effect = Float(self.effect_brighness)
         computeCommandEncoder!.setBytes(&time, length: MemoryLayout<Float>.size, index: 0)
-     
-        // Encode a threadgroup's execution of a compute function
+        computeCommandEncoder!.setBytes(&effect, length: MemoryLayout<Float>.size, index: 1)
         computeCommandEncoder!.dispatchThreadgroups(inputTexture.threadGroups(), threadsPerThreadgroup: inputTexture.threadGroupCount())
-     
-        // End the encoding of the command.
         computeCommandEncoder!.endEncoding()
      
-        // Register the current drawable for rendering.
-        commandBuffer.present(drawable)
-     
-        // Commit the command buffer for execution.
+        commandBuffer!.present(drawable)
         commandBuffer!.commit()
     }
-
-
-    
 }
 
 extension MTLTexture {

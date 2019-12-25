@@ -12,12 +12,13 @@ import MetalKit
 import MetalPerformanceShaders
 import AVKit
 
-class ViewController: AVPlayerViewController {
+class AVViewController: UIViewController {
 
     @IBOutlet weak var metalView: MetalView!
-
+    @IBOutlet weak var brightnessSlider: UISlider!
+    
     var player = AVPlayer()
-//    var avPlayerController = AVPlayerViewController()
+    var showAVControls = false
     
     lazy var playerItemVideoOutput: AVPlayerItemVideoOutput = {
         let attributes = [kCVPixelBufferPixelFormatTypeKey as String : Int(kCVPixelFormatType_32BGRA)]
@@ -31,41 +32,70 @@ class ViewController: AVPlayerViewController {
         return dl
     }()
     
+    @objc func onBrightnessChange() {
+        let value = brightnessSlider.value
+        if metalView != nil {
+            metalView.effect_brighness = value
+        }
+    }
+
+    @objc func someAction(_ sender:UITapGestureRecognizer){
+        print("view was clicked")
+        showAVControls.toggle()
+        if ( showAVControls == true ) {
+            showControls()
+        } else {
+            hideControls()
+        }
+    }
+
+    func showControls() {
+    }
+    
+    func hideControls() {
+    }
+    
+    override var prefersStatusBarHidden: Bool {
+        return true
+    }
+
+   // override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+   //     return .portrait
+   // }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        self.navigationController?.isNavigationBarHidden = true
+        setNeedsUpdateOfHomeIndicatorAutoHidden();
         
-        guard let url = Bundle.main.url(forResource: "SS2014_Backstage", withExtension: "mp4") else {
+        brightnessSlider.addTarget(self, action: #selector(onBrightnessChange), for: UIControl.Event.valueChanged)
+        
+        let gesture = UITapGestureRecognizer(target: self, action:  #selector (self.someAction (_:)))
+        self.metalView.addGestureRecognizer(gesture)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        guard let url = Bundle.main.url(forResource: "Dolce&Gabbana2019", withExtension: "mp4") else {
             print("Impossible to find the video.")
             return
         }
         
-        // Create an av asset for the given url.
-        let asset = AVURLAsset(url: url)
-         
-        // Create a av player item from the asset.
-        let playerItem = AVPlayerItem(asset: asset)
-         
-        // Add the player item video output to the player item.
+        let asset       = AVURLAsset(url: url)
+        let playerItem  = AVPlayerItem(asset: asset)
         playerItem.add(playerItemVideoOutput)
 
-        
-//        avPlayerController.player = player
-//        avPlayerController.showsPlaybackControls = true;
-        
-        // Add the player item to the player.
+        print("player item: ", playerItem.accessibilityFrame.size.width, playerItem.accessibilityFrame.size.height)
+
         player.replaceCurrentItem(with: playerItem)
-       
-        // Resume the display link
+
         displayLink.isPaused = false
     
-        // Start to play
-        
-//        avPlayerController.player?.play()
-        
-        
-//        player.play()
-
+        player.play()
     }
+    
+
     
     @objc private func readBuffer(_ sender: CADisplayLink) {
      
@@ -76,9 +106,12 @@ class ViewController: AVPlayerViewController {
         if playerItemVideoOutput.hasNewPixelBuffer(forItemTime: currentTime),
             let pixelBuffer = playerItemVideoOutput.copyPixelBuffer(forItemTime: currentTime, itemTimeForDisplay: nil)
             {
-                self.metalView.pixelBuffer = pixelBuffer
-                self.metalView.inputTime = currentTime.seconds
-
+                if (metalView != nil ) {
+                    self.metalView.pixelBuffer = pixelBuffer
+                    self.metalView.inputTime = currentTime.seconds
+                } else {
+                    fatalError("metalView: nil")
+                }
             }
     }
 
