@@ -1,6 +1,6 @@
 # Video Effect v1.0
 
-Sepia video effect using Metal shader, using onscreen slider.
+Sepia video effect using Metal shader, using on-screen slider.
 
 ### Display
 
