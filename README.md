@@ -4,9 +4,9 @@ Sepia video effect using Metal shader, using on-screen slider.
 
 ### Display
 
-![videoeffect](http://www.tonymonckton.co.uk/github/video1.jpg)
-![videoeffect](http://www.tonymonckton.co.uk/github/video2.jpg)
-![videoeffect](http://www.tonymonckton.co.uk/github/video3.jpg)
+![videoeffect](video1.jpg)
+![videoeffect](video2.jpg)
+![videoeffect](video3.jpg)
 
 ### Installation
 
